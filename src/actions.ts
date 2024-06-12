@@ -1,14 +1,36 @@
-// "use server"
+"use server"
+import { SignJWT } from "jose"
+import type { JWTPayload } from "jose"
+import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
 
-// import { cookies } from "next/headers"
+const secretKey = process.env["SECRET"]
 
-// export async function handleLogin(sessionData) {
-//   const encryptedSessionData = encrypt(sessionData) // Encrypt your session data
-//   cookies().set("session", encryptedSessionData, {
-//     httpOnly: true,
-//     secure: process.env.NODE_ENV === "production",
-//     maxAge: 60 * 60 * 24 * 7, // One week
-//     path: "/",
-//   })
-//   // Redirect or handle the response after setting the cookie
-// }
+const key = new TextEncoder().encode(secretKey)
+
+async function encrypt(payload: JWTPayload) {
+  return await new SignJWT(payload)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .sign(key)
+}
+
+export async function login(_: unknown, formData: FormData) {
+  const user = {
+    email: formData.get("email"),
+    password: formData.get("password"),
+  }
+
+  if (user.email !== "tanaka@example.com" || user.password !== "12345678") {
+    return { error: "email or password invalid." }
+  }
+  const exp = new Date(Date.now() + 10 * 1000).getTime()
+  const encryptedSessionData = await encrypt({ user, exp })
+  cookies().set("session", encryptedSessionData, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 7, // One week
+    path: "/",
+  })
+  redirect("/")
+}
